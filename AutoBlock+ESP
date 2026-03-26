@@ -24,13 +24,12 @@ local KILLER_CONFIG = {
         ["85591573377728"]  = {name="Ranging Pace",  block=false},
     },
     ["c00lkidd"] = {
-        ["18885909645"]    = {name="Punch",               block=true},
+        ["18885909645"]    = {name="Punch",               block=false},
         ["18885919947"]    = {name="Corrupt Nature",       block=false},
-        ["98456918873918"] = {name="Walkspeed Override",   block="owner",
-                                speed=false, iflook=true, catch=true,},
+        ["98456918873918"] = {name="Walkspeed Override",   block=false},
         ["106776364623742"]= {name="WalkspeedOverrideStart",block="owner",
-                              speed=true,speedMin=1,range=50,
-                              hold=0,autoR=false,iflook=true,catch=true},
+                              speed=true,speedMin=1,range=25,
+                              hold=0,autoR=false,iflook=true,catch=false},
         ["18885915433"]    = {name="PizzaDelivery",        block=false},
         ["18885906143"]    = {name="Walk",                 block=false},
         ["96571077893813"] = {name="Run",                  block=false},
@@ -41,16 +40,17 @@ local KILLER_CONFIG = {
                                 speed=false, autoR=true, range=10,
                                 iflook=true,},
         ["107339108383093"] = {name="NOVA",         block=false},
-        ["93841120533318"]  = {name="VOIDRUSH",     block="owner",
-                                speed=false, range=20, iflook=true,},
+        ["93841120533318"]  = {name="VOIDRUSH",     block=false},
         ["126896426760253"] = {name="VOIDRUSHSTART",block="owner",
-                              speed=true,speedMin=1,range=50,
-                              hold=0,autoR=false,iflook=true,catch=true},
+                              speed=true,speedMin=1,range=25,
+                              hold=0,autoR=false,iflook=true,catch=false},
         ["104744456957363"] = {name="OBSERVANT",    block=false},
         ["109700476007435"] = {name="Walk",         block=false},
         ["117451341682452"] = {name="Run",          block=false},
         ["83465205704188"]  = {name="Idle",         block=false},
     },
+    ["John Doe"] = {
+    }
 }
 
 local FAR_BLOCK_ANIMS = {
