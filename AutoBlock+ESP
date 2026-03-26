@@ -59,7 +59,7 @@ local KILLER_CONFIG = {
         ["105880087711722"] = {name="Idle",        block=false},
     },
     ["1x1x1x1"] = {
-        ["83829782357897"] = {name="Slash",          block="owner"
+        ["83829782357897"] = {name="Slash",          block="owner",
                                 speed=false, range=10, iflook=true,}
         ["99050723653468"] = {name="Mass Infection", block=false,}
         ["119181003138006"] = {name="Entanglement",  block=false,}
