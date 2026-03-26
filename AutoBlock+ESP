@@ -43,13 +43,31 @@ local KILLER_CONFIG = {
         ["93841120533318"]  = {name="VOIDRUSH",     block=false},
         ["126896426760253"] = {name="VOIDRUSHSTART",block="owner",
                               speed=true,speedMin=1,range=25,
-                              hold=0,autoR=false,iflook=true,catch=false},
+                              hold=0,autoR=false,iflook=true,},
         ["104744456957363"] = {name="OBSERVANT",    block=false},
         ["109700476007435"] = {name="Walk",         block=false},
         ["117451341682452"] = {name="Run",          block=false},
         ["83465205704188"]  = {name="Idle",         block=false},
     },
     ["John Doe"] = {
+        ["105458270463374"] = {name="Slash",        block="owner",
+                                speed=false, iflook=true, range=10},
+        ["127172483138092"] = {name="Corrupt Energy",        block=false},
+        ["86758834842420"] = {name="Digital Footprint",        block=false},
+        ["81193817424328"] = {name="walk",        block=false},
+        ["132653655520682"] = {name="Run",        block=false},
+        ["105880087711722"] = {name="Idle",        block=false},
+    },
+    ["1x1x1x1"] = {
+        ["83829782357897"] = {name="Slash",          block="owner"
+                                speed=false, range=10, iflook=true,,}
+        ["99050723653468"] = {name="Mass Infection", block=false,}
+        ["119181003138006"] = {name="Entanglement",  block=false,}
+        ["103951585216630"] = {name="Unstable Eye",  block=false,}
+        ["116996902830888"] = {name="Rejuvenate The Rotten", block=false,}
+        ["109130982296927"] = {name="Walk",          block=false,}
+        ["106485518413331"] = {name="Run",           block=false,}
+        ["138754221537146"] = {name="Idle",          block=false,}
     }
 }
 
@@ -97,7 +115,7 @@ local SETTING_KEYS = {
     [Enum.KeyCode.Four] ="BarrierDanger",
 }
 local SETTING_STEP={BlockRange=5,HoldTime=0.05,BarrierRange=5,BarrierDanger=2}
-local SETTING_MIN ={BlockRange=5,HoldTime=0,   BarrierRange=5,BarrierDanger=2}
+local SETTING_MIN ={BlockRange=5,HoldTime=0,   BarrierRange=5,BarrierDanger=0}
 local SETTING_MAX ={BlockRange=900,HoldTime=1.0,BarrierRange=100,BarrierDanger=20}
 local SELECTED="BlockRange"
 
