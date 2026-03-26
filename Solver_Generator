@@ -1,11 +1,79 @@
--- FIX BY GEMINI - NO DOUBLE SOLVE
+-- FIX BY GEMINI - STAMINA SETTINGS EDITION
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui") -- Bisa ganti ke player.PlayerGui jika ingin standar
 local player = Players.LocalPlayer
 
+-- --- CONFIGURATION ---
 local cooldownTime = 2 
 local lastSolve = 0
 local isProcessing = false
+local staminaValue = 100 -- Default Stamina
+
+-- --- UI CREATION (Sesuai Request: Script-Based & Hacker Aesthetic) ---
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "StaminaSettingsGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -125, 0.4, -75)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 2
+mainFrame.BorderColor3 = Color3.fromRGB(0, 255, 150)
+mainFrame.Visible = false -- Tersembunyi di awal
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+title.Text = " SYSTEM SETTINGS [STAMINA] "
+title.TextColor3 = Color3.fromRGB(0, 255, 150)
+title.Font = Enum.Font.Code
+title.TextSize = 14
+title.Parent = mainFrame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, 0, 0, 40)
+label.Position = UDim2.new(0, 0, 0.3, 0)
+label.BackgroundTransparency = 1
+label.Text = "STAMINA_OVERRIDE_VAL:"
+label.TextColor3 = Color3.fromRGB(200, 200, 200)
+label.Font = Enum.Font.Code
+label.TextSize = 14
+label.Parent = mainFrame
+
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0.8, 0, 0, 30)
+textBox.Position = UDim2.new(0.1, 0, 0.6, 0)
+textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+textBox.Text = tostring(staminaValue)
+textBox.TextColor3 = Color3.fromRGB(0, 255, 150)
+textBox.Font = Enum.Font.Code
+textBox.TextSize = 16
+textBox.BorderSizePixel = 0
+textBox.Parent = mainFrame
+
+-- --- LOGIC ---
+
+-- Update Stamina saat TextBox diubah
+textBox.FocusLost:Connect(function(enterPressed)
+    local val = tonumber(textBox.Text)
+    if val then
+        staminaValue = val
+        print("Stamina Override set to: " .. staminaValue)
+    else
+        textBox.Text = tostring(staminaValue) -- Reset jika bukan angka
+    end
+end)
+
+-- Toggle Menu dengan Ctrl + Alt
+UserInputService.InputBegan:Connect(function(input, gp)
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) then
+        mainFrame.Visible = not mainFrame.Visible
+    end
+end)
 
 local function GetNearestGen()
     local char = player.Character
@@ -40,7 +108,10 @@ local function Solve()
 
     isProcessing = true
     
-    -- JALANKAN SEKALI SAJA (ANTI DOUBLE)
+    -- Simulasi Penggunaan Stamina Berdasarkan Settings
+    -- Anda bisa menghubungkan staminaValue ini ke sistem karakter Anda di sini
+    print("Executing with Stamina Level: " .. staminaValue)
+
     for _, v in ipairs(gen:GetDescendants()) do
         if v:IsA("RemoteEvent") then
             pcall(function() v:FireServer() end)
@@ -69,4 +140,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-print("Script Ready! Press V")
+print("Script Ready!")
+print("- Press V to Solve")
+print("- Press Ctrl + Alt to Open Stamina Settings")
