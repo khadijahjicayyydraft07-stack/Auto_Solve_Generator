@@ -60,15 +60,15 @@ local KILLER_CONFIG = {
     },
     ["1x1x1x1"] = {
         ["83829782357897"] = {name="Slash",          block="owner",
-                                speed=false, range=10, iflook=true,}
-        ["99050723653468"] = {name="Mass Infection", block=false,}
-        ["119181003138006"] = {name="Entanglement",  block=false,}
-        ["103951585216630"] = {name="Unstable Eye",  block=false,}
-        ["116996902830888"] = {name="Rejuvenate The Rotten", block=false,}
-        ["109130982296927"] = {name="Walk",          block=false,}
-        ["106485518413331"] = {name="Run",           block=false,}
-        ["138754221537146"] = {name="Idle",          block=false,}
-    }
+                                speed=false, range=10, iflook=true},
+        ["99050723653468"] = {name="Mass_Infection", block=false},
+        ["119181003138006"] = {name="Entanglement",  block=false},
+        ["103951585216630"] = {name="Unstable Eye",  block=false},
+        ["116996902830888"] = {name="Rejuvenate The Rotten", block=false,},
+        ["109130982296927"] = {name="Walk",          block=false},
+        ["106485518413331"] = {name="Run",           block=false},
+        ["138754221537146"] = {name="Idle",          block=false},
+    },
 }
 
 local FAR_BLOCK_ANIMS = {
