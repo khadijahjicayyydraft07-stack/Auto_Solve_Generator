@@ -1,0 +1,107 @@
+-- =========================================
+-- SERVICES
+-- =========================================
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+-- =========================================
+-- CONFIGURATION
+-- =========================================
+local player = Players.LocalPlayer
+local cooldownTime = 5 -- Jeda antar pencetan (detik)
+local lastSolve = 0
+local isProcessing = false
+
+-- =========================================
+-- GET NEAREST GENERATOR
+-- =========================================
+local function GetNearestGen()
+    local char = player.Character
+    if not char then return nil end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local nearest, dist = nil, math.huge
+
+    for _, v in ipairs(workspace:GetDescendants()) do
+        -- Mencari model yang namanya ada kata "gen"
+        if v:IsA("Model") and v.Name:lower():find("gen") then
+            local part = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
+            if part then
+                local d = (hrp.Position - part.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    nearest = v
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+-- =========================================
+-- MAIN SOLVE FUNCTION
+-- =========================================
+local function Solve()
+    local currentTime = tick()
+    
+    -- 1. Anti-Spam: Cek jika sedang jalan atau masih cooldown
+    if isProcessing then return end
+    if (currentTime - lastSolve) < cooldownTime then
+        local sisa = math.ceil(cooldownTime - (currentTime - lastSolve))
+        warn("⏳ Cooldown! Tunggu " .. sisa .. " detik lagi.")
+        return
+    end
+
+    -- 2. Cari Generator terdekat
+    local gen = GetNearestGen()
+    if not gen then
+        warn("❌ Tidak ada Generator di dekatmu!")
+        return
+    end
+
+    -- 3. Kunci proses (Mulai Eksekusi)
+    isProcessing = true
+    print("[SYSTEM] Memproses Generator: " .. gen.Name)
+
+    -- 4. STEP 1: Fire Remote (Hanya SEKALI)
+    for _, v in ipairs(gen:GetDescendants()) do
+        if v:IsA("RemoteEvent") then
+            pcall(function() v:FireServer() end)
+        end
+    end
+
+    task.wait(0.3) -- Jeda singkat agar GUI muncul dulu
+
+    -- 5. STEP 2: Click GUI (Hanya SEKALI)
+    local pg = player:FindFirstChild("PlayerGui")
+    if pg then
+        for _, gui in ipairs(pg:GetDescendants()) do
+            if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                -- Hanya klik tombol yang terlihat/aktif
+                if gui.Visible and gui.Parent.Name ~= "Chat" then 
+                    pcall(function() gui:Activate() end)
+                end
+            end
+        end
+    end
+
+    -- 6. Selesai
+    lastSolve = tick()
+    isProcessing = false
+    print("✅ Berhasil di-solve!")
+end
+
+-- =========================================
+-- KEYBIND HANDLER
+-- =========================================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end -- Abaikan jika sedang ngetik di chat
+    
+    if input.KeyCode == Enum.KeyCode.V then
+        Solve()
+    end
+end)
+
+print("Successfully Loaded! Press 'V' to Solve Generator.")
