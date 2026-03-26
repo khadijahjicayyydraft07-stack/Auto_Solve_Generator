@@ -1,0 +1,762 @@
+--[[
+    FORSAKEN V28B - AutoR via Charge=9
+    by ikki_resky
+    Kalau block kena hit = Charge naik ke 9 → auto R
+]]
+
+-- ================================================
+--  TRICK SETTINGS (L Key)
+-- ================================================
+local TRICK = {
+    AnimId     = "rbxassetid://72722244508749",
+    IfAnimLoop = false,
+    WalkSpeed  = 16,
+}
+
+-- ================================================
+--  KILLER CONFIG
+-- ================================================
+local KILLER_CONFIG = {
+    ["Slasher"] = {
+        ["126830014841198"] = {name="Slash",        block=true},
+        ["126355327951215"] = {name="Behead",        block=true},
+        ["121086746534252"] = {name="Gashing Wound", block=true},
+        ["85591573377728"]  = {name="Ranging Pace",  block=false},
+    },
+    ["c00lkidd"] = {
+        ["18885909645"]    = {name="Punch",               block=true},
+        ["18885919947"]    = {name="Corrupt Nature",       block=false},
+        ["98456918873918"] = {name="Walkspeed Override",   block="owner",
+                                speed=false, iflook=true, catch=true,},
+        ["106776364623742"]= {name="WalkspeedOverrideStart",block="owner",
+                              speed=true,speedMin=1,range=50,
+                              hold=0,autoR=false,iflook=true,catch=true},
+        ["18885915433"]    = {name="PizzaDelivery",        block=false},
+        ["18885906143"]    = {name="Walk",                 block=false},
+        ["96571077893813"] = {name="Run",                  block=false},
+        ["18885903667"]    = {name="Idle",                 block=false},
+    },
+    ["Noli"] = {
+        ["106538427162796"] = {name="STAB",        block="owner",
+                                speed=false, autoR=true, range=10,
+                                iflook=true,},
+        ["107339108383093"] = {name="NOVA",         block=false},
+        ["93841120533318"]  = {name="VOIDRUSH",     block="owner",
+                                speed=false, range=20, iflook=true,},
+        ["126896426760253"] = {name="VOIDRUSHSTART",block="owner",
+                              speed=true,speedMin=1,range=50,
+                              hold=0,autoR=false,iflook=true,catch=true},
+        ["104744456957363"] = {name="OBSERVANT",    block=false},
+        ["109700476007435"] = {name="Walk",         block=false},
+        ["117451341682452"] = {name="Run",          block=false},
+        ["83465205704188"]  = {name="Idle",         block=false},
+    },
+}
+
+local FAR_BLOCK_ANIMS = {
+    ["126830014841198"]=true,
+    ["126355327951215"]=true,
+}
+
+-- ================================================
+--  SERVICES
+-- ================================================
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local VIM              = game:GetService("VirtualInputManager")
+
+local player    = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+for _,n in ipairs({"FG_AB_V28B","HackerSettings"}) do
+    if playerGui:FindFirstChild(n) then playerGui:FindFirstChild(n):Destroy() end
+end
+
+-- ================================================
+--  CFG
+-- ================================================
+local CFG = {
+    AutoBlock    = true,
+    BlockKey     = Enum.KeyCode.Q,
+    ToggleKey    = Enum.KeyCode.P,
+    AltKey       = Enum.KeyCode.LeftAlt,
+    HoldTime     = 0.3,
+    Cooldown     = 0.05,
+    BlockRange   = 10,
+    BarrierOn    = false,
+    BarrierRange = 15,
+    BarrierDanger= 5,
+    BarrierSpeed = 30,
+}
+local SETTING_KEYS = {
+    [Enum.KeyCode.One]  ="BlockRange",
+    [Enum.KeyCode.Two]  ="HoldTime",
+    [Enum.KeyCode.Three]="BarrierRange",
+    [Enum.KeyCode.Four] ="BarrierDanger",
+}
+local SETTING_STEP={BlockRange=5,HoldTime=0.05,BarrierRange=5,BarrierDanger=2}
+local SETTING_MIN ={BlockRange=5,HoldTime=0,   BarrierRange=5,BarrierDanger=2}
+local SETTING_MAX ={BlockRange=900,HoldTime=1.0,BarrierRange=100,BarrierDanger=20}
+local SELECTED="BlockRange"
+
+local Settings={ESP_Generator=true,ESP_Killer=true,ESP_Survivor=true,Keybind_HackerSet=Enum.KeyCode.RightShift}
+local GEN_IMAGE="rbxassetid://77769283825029"
+
+-- ================================================
+--  STAMINA
+-- ================================================
+local infiniteStaminaActive=false
+local customStaminaMax=100
+local function GetStaminaElements()
+    local t=playerGui:FindFirstChild("TemporaryUI");if not t then return nil,nil end
+    local b=t:FindFirstChild("PlayerInfo") and t.PlayerInfo:FindFirstChild("Bars")
+        and t.PlayerInfo.Bars:FindFirstChild("Stamina") and t.PlayerInfo.Bars.Stamina:FindFirstChild("Bar")
+    return b,t:FindFirstChild("CenterStaminaCounter")
+end
+local function StartInfiniteStamina(v)
+    infiniteStaminaActive=true;customStaminaMax=v or 100
+    task.spawn(function()
+        while infiniteStaminaActive do task.wait()
+            local b,c=GetStaminaElements()
+            if b then b.Size=UDim2.new(1,0,1,0) end
+            if c then c.Text=tostring(customStaminaMax) end
+        end
+    end)
+end
+local function StopInfiniteStamina() infiniteStaminaActive=false end
+local function ApplyStamina(v) customStaminaMax=tonumber(v) or 100;StopInfiniteStamina();StartInfiniteStamina(customStaminaMax) end
+
+-- ================================================
+--  GENERATOR CACHE
+-- ================================================
+local cache={};local completedGens={}
+local function IsCompleted(gen)
+    if completedGens[gen] then return true end
+    for _,d in ipairs(gen:GetDescendants()) do
+        if d:IsA("Frame") then local n=d.Name:lower()
+            if(n=="bar"or n=="fill"or n=="progress")and d.Size.X.Scale>=0.99 then return true end
+        end
+    end
+    local a=gen:GetAttribute("Progress");if a and tonumber(a)and tonumber(a)>=100 then return true end
+    return false
+end
+local function RefreshCache()
+    cache={}
+    for _,o in ipairs(workspace:GetDescendants()) do
+        if o.Name=="Generator"and o:IsA("Model")and not IsCompleted(o) then table.insert(cache,o) end
+    end
+end
+RefreshCache()
+task.spawn(function() while true do task.wait(3);RefreshCache() end end)
+
+-- ================================================
+--  ESP
+-- ================================================
+local killerESP={};local survivorESP={};local espData={}
+local function MakeCharESP(char,label,color,storage)
+    if storage[char] then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart");if not hrp then return end
+    local bb=Instance.new("BillboardGui");bb.Adornee=hrp;bb.Size=UDim2.new(0,100,0,30)
+    bb.StudsOffset=Vector3.new(0,3,0);bb.AlwaysOnTop=true;bb.LightInfluence=0;bb.Parent=playerGui
+    local lbl=Instance.new("TextLabel");lbl.Size=UDim2.new(1,0,1,0);lbl.BackgroundTransparency=1
+    lbl.TextColor3=color;lbl.TextScaled=true;lbl.Font=Enum.Font.GothamBold;lbl.Text=label
+    lbl.TextStrokeColor3=Color3.fromRGB(0,0,0);lbl.TextStrokeTransparency=0;lbl.Parent=bb
+    local box=Instance.new("SelectionBox");box.Adornee=hrp;box.Color3=color;box.LineThickness=0.05
+    box.SurfaceTransparency=0.8;box.SurfaceColor3=color;box.Parent=playerGui
+    storage[char]={bb=bb,box=box}
+end
+local function RemoveCharESP(char,storage)
+    if storage[char] then storage[char].bb:Destroy();storage[char].box:Destroy();storage[char]=nil end
+end
+local function IsKillerPlayer(p)
+    if not p.Character then return false end
+    local adn=p.Character:GetAttribute("ActorDisplayName") or ""
+    if adn~="" then
+        local kf=workspace:FindFirstChild("Players")and workspace.Players:FindFirstChild("Killers")
+        if kf then for _,o in ipairs(kf:GetChildren()) do if o.Name==adn then return true end end end
+    end
+    if p.Character:GetAttribute("IsKiller")==true then return true end
+    local kf2=workspace:FindFirstChild("Players")and workspace.Players:FindFirstChild("Killers")
+    if kf2 then for _,o in ipairs(kf2:GetChildren()) do if o.Name==p.Name then return true end end end
+    return false
+end
+task.spawn(function()
+    while true do task.wait(1)
+        for _,p in ipairs(Players:GetPlayers()) do
+            if p~=player and p.Character then
+                if IsKillerPlayer(p)and Settings.ESP_Killer then
+                    if not killerESP[p.Character] then MakeCharESP(p.Character,"☠ "..p.Name,Color3.fromRGB(255,50,50),killerESP) end
+                elseif not IsKillerPlayer(p)and Settings.ESP_Survivor then
+                    if not survivorESP[p.Character] then MakeCharESP(p.Character,"👤 "..p.Name,Color3.fromRGB(0,200,255),survivorESP) end
+                end
+            end
+        end
+        for c in pairs(killerESP) do if not c.Parent then RemoveCharESP(c,killerESP) end end
+        for c in pairs(survivorESP) do if not c.Parent then RemoveCharESP(c,survivorESP) end end
+    end
+end)
+local function MakeGenESP(gen)
+    if espData[gen]or not gen.PrimaryPart or completedGens[gen] then return end
+    local pBB=Instance.new("BillboardGui");pBB.Adornee=gen.PrimaryPart;pBB.Size=UDim2.new(0,150,0,45)
+    pBB.StudsOffset=Vector3.new(0,5,0);pBB.AlwaysOnTop=true;pBB.LightInfluence=0;pBB.Parent=playerGui
+    local tL=Instance.new("TextLabel");tL.Size=UDim2.new(1,0,0.5,0);tL.BackgroundTransparency=1
+    tL.TextColor3=Color3.fromRGB(255,255,255);tL.TextScaled=true;tL.Font=Enum.Font.GothamBold
+    tL.Text="Generator";tL.TextStrokeTransparency=0;tL.Parent=pBB
+    local pL=Instance.new("TextLabel");pL.Size=UDim2.new(1,0,0.5,0);pL.Position=UDim2.new(0,0,0.5,0)
+    pL.BackgroundTransparency=1;pL.TextColor3=Color3.fromRGB(255,255,255);pL.TextScaled=true
+    pL.Font=Enum.Font.GothamBold;pL.Text="0%";pL.TextStrokeTransparency=0;pL.Parent=pBB
+    local iBB=Instance.new("BillboardGui");iBB.Adornee=gen.PrimaryPart;iBB.Size=UDim2.new(0,50,0,50)
+    iBB.StudsOffset=Vector3.new(0,-1,0);iBB.AlwaysOnTop=true;iBB.LightInfluence=0;iBB.Parent=playerGui
+    local img=Instance.new("ImageLabel");img.Size=UDim2.new(1,0,1,0);img.BackgroundTransparency=1
+    img.Image=GEN_IMAGE;img.ScaleType=Enum.ScaleType.Fit;img.Parent=iBB
+    espData[gen]={progBB=pBB,pLbl=pL,tLbl=tL,imgBB=iBB,img=img,completed=false}
+    local function SP(pct)
+        local d=espData[gen];if not d or d.completed then return end
+        d.pLbl.Text=pct.."%"
+        if pct>=100 then
+            d.completed=true;completedGens[gen]=true;d.pLbl.Text="✅ 100%"
+            d.pLbl.TextColor3=Color3.fromRGB(0,255,100);RefreshCache()
+            task.delay(1.5,function()
+                TweenService:Create(d.img,TweenInfo.new(1.5),{ImageTransparency=1}):Play()
+                TweenService:Create(d.pLbl,TweenInfo.new(1.5),{TextTransparency=1}):Play()
+                TweenService:Create(d.tLbl,TweenInfo.new(1.5),{TextTransparency=1}):Play()
+                task.delay(2,function() if espData[gen] then espData[gen].progBB:Destroy();espData[gen].imgBB:Destroy();espData[gen]=nil end end)
+            end)
+        elseif pct>=75 then d.pLbl.TextColor3=Color3.fromRGB(0,200,255)
+        elseif pct>=50 then d.pLbl.TextColor3=Color3.fromRGB(255,200,0)
+        elseif pct>=25 then d.pLbl.TextColor3=Color3.fromRGB(255,140,0)
+        else d.pLbl.TextColor3=Color3.fromRGB(255,255,255) end
+    end
+    for _,d in ipairs(gen:GetDescendants()) do
+        if d:IsA("Frame") then local n=d.Name:lower()
+            if n=="bar"or n=="fill"or n=="progress" then
+                d:GetPropertyChangedSignal("Size"):Connect(function() SP(math.floor(d.Size.X.Scale*100)) end)
+            end
+        end
+    end
+    gen.AttributeChanged:Connect(function(a) if a=="Progress" then SP(math.clamp(tonumber(gen:GetAttribute("Progress"))or 0,0,100)) end end)
+    task.spawn(function() local last=0
+        while gen and gen.Parent and not completedGens[gen] do task.wait(1)
+            for _,d in ipairs(gen:GetDescendants()) do
+                if d:IsA("Frame") then local n=d.Name:lower()
+                    if n=="bar"or n=="fill"or n=="progress" then
+                        local p=math.floor(d.Size.X.Scale*100);if p~=last then last=p;SP(p) end
+                    end
+                end
+            end
+        end
+    end)
+end
+local function RefreshESP()
+    if not Settings.ESP_Generator then return end
+    for _,g in ipairs(workspace:GetDescendants()) do
+        if g.Name=="Generator"and g:IsA("Model")and not espData[g]and not completedGens[g] then MakeGenESP(g) end
+    end
+end
+RefreshESP()
+task.spawn(function() while true do task.wait(3);RefreshESP() end end)
+
+-- ================================================
+--  AUTO BLOCK CORE
+-- ================================================
+local function getAnimId(id) return tostring(id or ""):match("%d+$") or "" end
+local BS={isBlocking=false,lastBlock=0,count=0,nearDist=999,nearName="-",lastSkill="-",lastSkip="-"}
+
+local function IsKillerChar(char)
+    if not char or char==player.Character then return false end
+    local adn=char:GetAttribute("ActorDisplayName") or "";if adn=="" then return false end
+    local kf=workspace:FindFirstChild("Players")and workspace.Players:FindFirstChild("Killers")
+    if not kf then return false end
+    for _,o in ipairs(kf:GetChildren()) do if o.Name==adn then return true end end
+    return false
+end
+local function GetKillerName(char) return char and char:GetAttribute("ActorDisplayName") or "?" end
+local function GetDist(char)
+    local a=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local b=char and char:FindFirstChild("HumanoidRootPart")
+    if not a or not b then return 999 end;return(a.Position-b.Position).Magnitude
+end
+
+-- iflook: killer tidak sedang balik belakang penuh ke player
+local function KillerFacingOK(kChar)
+    local myHRP=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local kHRP=kChar and kChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP or not kHRP then return true end
+    -- dot > -0.5: killer tidak sepenuhnya hadap belakang (boleh block)
+    -- dot <= -0.5: killer balik belakang penuh (skip)
+    local dot=kHRP.CFrame.LookVector:Dot((myHRP.Position-kHRP.Position).Unit)
+    return dot > -0.5
+end
+
+-- catch: dodge mundur ke arah belakang character sendiri (bukan ke killer)
+local function DodgeBack()
+    local char=player.Character;if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart");if not hrp then return end
+    -- Mundur = negatif LookVector character
+    local bv=Instance.new("BodyVelocity")
+    bv.Velocity=hrp.CFrame.LookVector * -60
+    bv.MaxForce=Vector3.new(1e5,0,1e5);bv.P=1e4;bv.Parent=hrp
+    task.delay(0.12,function() if bv and bv.Parent then bv:Destroy() end end)
+end
+
+-- ================================================
+--  AUTO R via RESISTANCE = 9 (V28B)
+-- ================================================
+local autoRWatching = false
+local lastCharge = 0
+local function WatchChargeForR()
+    if autoRWatching then return end
+    autoRWatching = true
+    local myChar = player.Character or player.CharacterAdded:Wait()
+    lastCharge = tonumber(myChar:GetAttribute("Charge")) or 0
+    myChar.AttributeChanged:Connect(function(attr)
+        if attr ~= "Charge" then return end
+        local newCharge = tonumber(myChar:GetAttribute("Charge")) or 0
+        if newCharge > lastCharge then
+            local old = lastCharge; lastCharge = newCharge
+            task.spawn(function()
+                task.wait(0.05)
+                pcall(function() VIM:SendKeyEvent(true,Enum.KeyCode.R,false,game) end)
+                task.wait(0.1)
+                pcall(function() VIM:SendKeyEvent(false,Enum.KeyCode.R,false,game) end)
+                print("[AUTO R] Block hit! Charge "..old.."→"..newCharge)
+            end)
+        else
+            lastCharge = newCharge
+        end
+    end)
+    print("[V28B] Watching Charge for AutoR...")
+end
+
+player.CharacterAdded:Connect(function(char)
+    autoRWatching=false
+    task.wait(1); WatchChargeForR()
+end)
+
+local function FireAutoR()
+    pcall(function() VIM:SendKeyEvent(true,Enum.KeyCode.R,false,game) end)
+    task.wait(0.1)
+    pcall(function() VIM:SendKeyEvent(false,Enum.KeyCode.R,false,game) end)
+end
+
+local function Block(reason,doCatch)
+    if not CFG.AutoBlock then return end
+    local now=tick()
+    if now-BS.lastBlock<CFG.Cooldown or BS.isBlocking then return end
+    BS.isBlocking=true;BS.lastBlock=now;BS.count=BS.count+1
+    if doCatch then DodgeBack() end
+    pcall(function() VIM:SendKeyEvent(true,CFG.BlockKey,false,game) end)
+    task.delay(CFG.HoldTime,function()
+        pcall(function() VIM:SendKeyEvent(false,CFG.BlockKey,false,game) end)
+        BS.isBlocking=false
+    end)
+    print(string.format("[BLOCK #%d] %s",BS.count,reason))
+end
+
+-- ================================================
+--  HOOK KILLER
+-- ================================================
+local hooked={};local prevAbils={}
+local function HookKillerChar(char,pName)
+    if not char or hooked[char] or char==player.Character then return end
+    if not IsKillerChar(char) then return end
+    hooked[char]=true;prevAbils[char]=char:GetAttribute("AbilitiesUsed") or 0
+    local kn=GetKillerName(char);local kCFG=KILLER_CONFIG[kn]
+    print(string.format("[HOOK] %s (%s) %s",kn,pName,kCFG and "✓config" or "no config"))
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local animator=hum:FindFirstChildOfClass("Animator")
+        if animator then
+            animator.AnimationPlayed:Connect(function(animTrack)
+                if not CFG.AutoBlock then return end
+                local id=getAnimId(animTrack.Animation and animTrack.Animation.AnimationId or "")
+                if id=="" then return end
+                if kCFG then
+                    local info=kCFG[id]
+                    if not info then print(string.format("[SKIP-UNK] %s id=%s",kn,id));return end
+                    if not info.block then BS.lastSkip=info.name;print(string.format("[SKIP] %s %s",kn,info.name));return end
+
+                    -- block=true
+                    if info.block==true then
+                        local dist=GetDist(char)
+                        local rangeOK=FAR_BLOCK_ANIMS[id] and dist<=30 or dist<=CFG.BlockRange
+                        if rangeOK then BS.lastSkill=info.name;Block(string.format("%s %s",kn,info.name),false) end
+                        return
+                    end
+
+                    -- block="speed"
+                    if info.block=="speed" then
+                        local sMin=info.speedMin or 30;local sRange=info.range or 30
+                        local kHRP=char:FindFirstChild("HumanoidRootPart")
+                        local myHRP=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                        if not kHRP or not myHRP then return end
+                        task.spawn(function()
+                            local prev=kHRP.Position;local t0=tick();local done=false
+                            while char and char.Parent and animTrack.IsPlaying do
+                                task.wait(0.1);if done then break end
+                                local curr=kHRP.Position
+                                local spd=(curr-prev).Magnitude/0.1;prev=curr
+                                local dist=(myHRP.Position-curr).Magnitude
+                                local facing=kHRP.CFrame.LookVector:Dot((myHRP.Position-curr).Unit)>0.4
+                                if spd>=sMin and facing and dist<=sRange then
+                                    BS.lastSkill=string.format("%s spd=%.1f",info.name,spd)
+                                    Block(string.format("%s %s [spd=%.1f]",kn,info.name,spd),false)
+                                    done=true
+                                end
+                                if tick()-t0>6 then break end
+                            end
+                        end)
+                        return
+                    end
+
+                    -- block="owner"
+                    if info.block=="owner" then
+                        local kHRP=char:FindFirstChild("HumanoidRootPart")
+                        local myHRP=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                        if not kHRP or not myHRP then return end
+                        task.spawn(function()
+                            local prev=kHRP.Position;local t0=tick();local done=false
+                            while char and char.Parent and animTrack.IsPlaying do
+                                task.wait(0.1);if done then break end
+                                local curr=kHRP.Position
+                                local dist=(myHRP.Position-curr).Magnitude
+                                local facing=kHRP.CFrame.LookVector:Dot((myHRP.Position-curr).Unit)>0.4
+
+                                -- iflook check
+                                if info.iflook and not KillerFacingOK(char) then
+                                    prev=curr
+                                    if tick()-t0>6 then break end
+                                    continue
+                                end
+
+                                local shouldBlock=false
+                                if info.speed then
+                                    local spd=(curr-prev).Magnitude/0.1
+                                    if spd>=(info.speedMin or 30) and facing and dist<=(info.range or 30) then
+                                        shouldBlock=true;BS.lastSkill=string.format("%s spd=%.1f",info.name,spd)
+                                    end
+                                else
+                                    if dist<=(info.range or CFG.BlockRange) and facing then
+                                        shouldBlock=true;BS.lastSkill=info.name
+                                    end
+                                end
+                                prev=curr
+                                if shouldBlock then
+                                    done=true
+                                    if info.hold and info.hold>0 then task.wait(info.hold) end
+                                    Block(string.format("%s %s [owner]",kn,info.name),info.catch or false)
+                                end
+                                if tick()-t0>6 then break end
+                            end
+                        end)
+                        return
+                    end
+                else
+                    local dist=GetDist(char)
+                    if dist<=CFG.BlockRange then BS.lastSkill="unk:"..id;Block(string.format("%s unk:%s",kn,id),false) end
+                end
+            end)
+        end
+    end
+    char.AncestryChanged:Connect(function() if not char.Parent then hooked[char]=nil;prevAbils[char]=nil end end)
+end
+
+local function ScanAll()
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=player and p.Character then HookKillerChar(p.Character,p.Name) end
+        p.CharacterAdded:Connect(function(c) task.wait(1.5);HookKillerChar(c,p.Name) end)
+    end
+end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function(c) task.wait(1.5);HookKillerChar(c,p.Name) end) end)
+local function WatchKillerFolder()
+    local function WF(kf) kf.ChildAdded:Connect(function() task.wait(1.5);ScanAll() end) end
+    local wsp=workspace:FindFirstChild("Players")
+    if wsp then local kf=wsp:FindFirstChild("Killers");if kf then WF(kf) end
+        wsp.ChildAdded:Connect(function(o) if o.Name=="Killers" then WF(o) end end) end
+    workspace.ChildAdded:Connect(function(o)
+        if o.Name=="Players" then task.wait(0.5);local kf=o:FindFirstChild("Killers");if kf then WF(kf) end end
+    end)
+end
+task.spawn(function() while true do task.wait(2);ScanAll() end end)
+
+-- ================================================
+--  AUTO BARRIER
+-- ================================================
+local barrierRotDir=1
+RunService.Heartbeat:Connect(function()
+    local myHRP=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local best,bestDist="-",999;local nearChar=nil
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=player and IsKillerChar(p.Character) and p.Character then
+            local h=p.Character:FindFirstChild("HumanoidRootPart")
+            if h then local d=(myHRP.Position-h.Position).Magnitude
+                if d<bestDist then bestDist=d;best=p.Name;nearChar=p.Character end
+            end
+        end
+    end
+    BS.nearDist=bestDist;BS.nearName=best
+    if not CFG.BarrierOn or not nearChar then
+        local bv=myHRP:FindFirstChild("BarrierBV");if bv then bv:Destroy() end;return
+    end
+    local kHRP=nearChar:FindFirstChild("HumanoidRootPart");if not kHRP then return end
+    local dist=(myHRP.Position-kHRP.Position).Magnitude
+    if dist<=CFG.BarrierDanger then
+        barrierRotDir=math.random(2)==1 and 1 or -1
+        local toK=(kHRP.Position-myHRP.Position).Unit
+        local rot=CFrame.fromAxisAngle(Vector3.new(0,1,0),math.rad(90*barrierRotDir))
+        local sideDir=(rot*toK).Unit
+        local bv=myHRP:FindFirstChild("BarrierBV") or Instance.new("BodyVelocity",myHRP)
+        bv.Name="BarrierBV";bv.MaxForce=Vector3.new(1e5,0,1e5);bv.P=1e4;bv.Velocity=sideDir*CFG.BarrierSpeed
+    elseif dist<=CFG.BarrierRange then
+        local awayDir=(myHRP.Position-kHRP.Position).Unit
+        local bv=myHRP:FindFirstChild("BarrierBV") or Instance.new("BodyVelocity",myHRP)
+        bv.Name="BarrierBV";bv.MaxForce=Vector3.new(1e5,0,1e5);bv.P=1e4;bv.Velocity=awayDir*CFG.BarrierSpeed
+    else
+        local bv=myHRP:FindFirstChild("BarrierBV");if bv then bv:Destroy() end
+    end
+end)
+
+-- ================================================
+--  TRICK (L)
+-- ================================================
+local trickLooping=false;local trickTrack=nil
+local function PlayTrick()
+    local char=player.Character;if not char then return end
+    local hum=char:FindFirstChildOfClass("Humanoid");if not hum then return end
+    local anim=Instance.new("Animation");anim.AnimationId=TRICK.AnimId
+    local track=hum:LoadAnimation(anim)
+    if TRICK.IfAnimLoop then
+        if trickLooping then
+            trickLooping=false;if trickTrack then trickTrack:Stop() end
+            local h=char:FindFirstChildOfClass("Humanoid");if h then h.WalkSpeed=16 end
+        else
+            trickLooping=true;trickTrack=track;track.Looped=true;track:Play()
+            local h=char:FindFirstChildOfClass("Humanoid");if h then h.WalkSpeed=TRICK.WalkSpeed end
+        end
+    else
+        track.Looped=false;track:Play()
+        track.Stopped:Connect(function()
+            local h=char:FindFirstChildOfClass("Humanoid");if h then h.WalkSpeed=16 end
+        end)
+    end
+end
+
+-- ================================================
+--  GUI
+-- ================================================
+local sg=Instance.new("ScreenGui",playerGui)
+sg.Name="FG_AB_V28B";sg.ResetOnSpawn=false;sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+local F=Instance.new("Frame",sg);F.Size=UDim2.new(0,265,0,170);F.Position=UDim2.new(1,-275,1,-180)
+F.BackgroundColor3=Color3.fromRGB(8,6,12);F.BackgroundTransparency=0.2;F.BorderSizePixel=0
+F.Active=true;F.Draggable=true
+Instance.new("UICorner",F).CornerRadius=UDim.new(0,8)
+local fst=Instance.new("UIStroke",F);fst.Color=Color3.fromRGB(255,50,50);fst.Thickness=1.5
+local function Lbl(p,txt,col,sz,yp)
+    local l=Instance.new("TextLabel",p);l.Size=UDim2.new(1,-8,0,sz or 13);l.Position=UDim2.new(0,4,0,yp)
+    l.BackgroundTransparency=1;l.Text=txt;l.TextColor3=col or Color3.fromRGB(255,255,255)
+    l.TextSize=sz or 11;l.Font=Enum.Font.GothamBold;l.TextXAlignment=Enum.TextXAlignment.Left;return l
+end
+Lbl(F,"☠ FORSAKEN V28B [Charge AutoR]",Color3.fromRGB(255,80,80),11,3)
+local SL =Lbl(F,"● ON  [P]",    Color3.fromRGB(80,255,120),  11,18)
+local CL =Lbl(F,"Blocks: 0",   Color3.fromRGB(200,150,255), 10,32)
+local KL =Lbl(F,"Killer: -",   Color3.fromRGB(180,180,180), 10,45)
+local AML=Lbl(F,"Last: -",     Color3.fromRGB(100,200,255), 10,58)
+local SKL=Lbl(F,"Skip: -",     Color3.fromRGB(255,150,50),  10,71)
+local BRL=Lbl(F,"Barrier: OFF",Color3.fromRGB(150,150,150), 10,84)
+local SEL=Lbl(F,"Sel: BlockRange=10",Color3.fromRGB(255,220,80),9,97)
+Lbl(F,"[P]=Block [LAlt]=Set [RShift]=ESP [B]=Barrier",Color3.fromRGB(100,100,130),8,110)
+Lbl(F,"[1-4]=Sel [←→]=Val [L]=Trick",Color3.fromRGB(100,100,130),8,123)
+Lbl(F,"AutoR: Charge≥9 → R (V28B)",Color3.fromRGB(255,200,80),8,136)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not sg.Parent then break end
+        CL.Text="Blocks: "..BS.count
+        SL.Text=CFG.AutoBlock and "● ON  [P]" or "● OFF [P]"
+        SL.TextColor3=CFG.AutoBlock and Color3.fromRGB(80,255,120) or Color3.fromRGB(255,60,60)
+        AML.Text="Last: "..BS.lastSkill;SKL.Text="Skip: "..BS.lastSkip
+        BRL.Text=CFG.BarrierOn and ("Barrier: ON ["..CFG.BarrierRange.."st]") or "Barrier: OFF [B]"
+        BRL.TextColor3=CFG.BarrierOn and Color3.fromRGB(80,255,80) or Color3.fromRGB(150,150,150)
+        SEL.Text="Sel: "..SELECTED.."="..tostring(CFG[SELECTED])
+        local d=BS.nearDist;local n=BS.nearName
+        if d<=CFG.BlockRange then KL.Text=string.format("%s %.0fst ⚠",n,d);KL.TextColor3=Color3.fromRGB(255,80,80);fst.Color=Color3.fromRGB(255,220,0)
+        elseif d<=30 then KL.Text=string.format("%s %.0fst",n,d);KL.TextColor3=Color3.fromRGB(255,180,60);fst.Color=Color3.fromRGB(255,180,60)
+        else KL.Text="Killer: jauh";KL.TextColor3=Color3.fromRGB(130,130,130);fst.Color=Color3.fromRGB(255,50,50) end
+        F.BackgroundColor3=BS.isBlocking and Color3.fromRGB(30,20,0) or Color3.fromRGB(8,6,12)
+    end
+end)
+
+-- Block Settings Panel
+local bPanel=Instance.new("Frame",sg);bPanel.Size=UDim2.new(0,320,0,310);bPanel.Position=UDim2.new(0.5,-160,0.5,-155)
+bPanel.BackgroundColor3=Color3.fromRGB(8,6,14);bPanel.BorderSizePixel=0;bPanel.Visible=false;bPanel.ZIndex=6
+Instance.new("UICorner",bPanel).CornerRadius=UDim.new(0,12)
+local bps=Instance.new("UIStroke",bPanel);bps.Color=Color3.fromRGB(255,50,50);bps.Thickness=1.5
+local bH=Instance.new("Frame",bPanel);bH.Size=UDim2.new(1,0,0,44);bH.BackgroundColor3=Color3.fromRGB(40,0,0)
+bH.BorderSizePixel=0;bH.ZIndex=7;Instance.new("UICorner",bH).CornerRadius=UDim.new(0,12)
+local bHFix=Instance.new("Frame",bH);bHFix.Size=UDim2.new(1,0,0.5,0);bHFix.Position=UDim2.new(0,0,0.5,0)
+bHFix.BackgroundColor3=Color3.fromRGB(40,0,0);bHFix.BorderSizePixel=0
+local bT=Instance.new("TextLabel",bH);bT.Size=UDim2.new(1,-50,1,0);bT.Position=UDim2.new(0,12,0,0)
+bT.BackgroundTransparency=1;bT.TextColor3=Color3.fromRGB(255,120,120);bT.TextScaled=true
+bT.Font=Enum.Font.GothamBold;bT.Text="⚙️  BLOCK SETTINGS";bT.TextXAlignment=Enum.TextXAlignment.Left;bT.ZIndex=8
+local bCl=Instance.new("TextButton",bH);bCl.Size=UDim2.new(0,30,0,30);bCl.Position=UDim2.new(1,-38,0.5,-15)
+bCl.BackgroundColor3=Color3.fromRGB(80,0,0);bCl.Text="✕";bCl.TextColor3=Color3.fromRGB(255,100,100)
+bCl.Font=Enum.Font.GothamBold;bCl.TextScaled=true;bCl.ZIndex=9;Instance.new("UICorner",bCl).CornerRadius=UDim.new(0,8)
+bCl.MouseButton1Click:Connect(function() bPanel.Visible=false end)
+local settingLabels={};local settingDefs={
+    {key="BlockRange",   label="[1] Block Range",   presets={5,10,15,20,30},    yp=52},
+    {key="HoldTime",     label="[2] Hold Time(s)",  presets={0,0.1,0.2,0.3,0.5},yp=102},
+    {key="BarrierRange", label="[3] Barrier Range", presets={10,15,20,30,50},   yp=152},
+    {key="BarrierDanger",label="[4] Danger Range",  presets={2,3,5,7,10},       yp=202},
+}
+for _,def in ipairs(settingDefs) do
+    local lbl=Instance.new("TextLabel",bPanel);lbl.Size=UDim2.new(1,-20,0,16);lbl.Position=UDim2.new(0,10,0,def.yp)
+    lbl.BackgroundTransparency=1;lbl.TextColor3=Color3.fromRGB(200,180,255);lbl.Font=Enum.Font.GothamBold
+    lbl.TextSize=11;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.ZIndex=7
+    lbl.Text=def.label..": "..tostring(CFG[def.key]);settingLabels[def.key]=lbl
+    local row=Instance.new("Frame",bPanel);row.Size=UDim2.new(1,-60,0,24);row.Position=UDim2.new(0,10,0,def.yp+18)
+    row.BackgroundTransparency=1;row.ZIndex=7
+    local rl=Instance.new("UIListLayout",row);rl.FillDirection=Enum.FillDirection.Horizontal;rl.Padding=UDim.new(0,3)
+    for _,v in ipairs(def.presets) do
+        local btn=Instance.new("TextButton",row);btn.Size=UDim2.new(0,38,1,0);btn.BorderSizePixel=0
+        btn.Text=" "..tostring(v).." ";btn.Font=Enum.Font.GothamBold;btn.TextSize=10
+        btn.BackgroundColor3=Color3.fromRGB(40,0,0);btn.TextColor3=Color3.fromRGB(255,150,150)
+        btn.ZIndex=8;Instance.new("UICorner",btn).CornerRadius=UDim.new(0,5)
+        local cV=v;local cK=def.key;local cL=lbl;local cD=def
+        btn.MouseButton1Click:Connect(function() CFG[cK]=cV;cL.Text=cD.label..": "..tostring(CFG[cK]) end)
+    end
+    local bM=Instance.new("TextButton",bPanel);bM.Size=UDim2.new(0,22,0,22);bM.Position=UDim2.new(1,-48,0,def.yp+20)
+    bM.BackgroundColor3=Color3.fromRGB(60,0,0);bM.Text="−";bM.TextColor3=Color3.fromRGB(255,150,150)
+    bM.Font=Enum.Font.GothamBold;bM.TextScaled=true;bM.BorderSizePixel=0;bM.ZIndex=9
+    Instance.new("UICorner",bM).CornerRadius=UDim.new(0,5)
+    local cK2=def.key;local cL2=lbl;local cD2=def
+    bM.MouseButton1Click:Connect(function()
+        CFG[cK2]=math.max(SETTING_MIN[cK2],math.round((CFG[cK2]-SETTING_STEP[cK2])*100)/100)
+        cL2.Text=cD2.label..": "..tostring(CFG[cK2])
+    end)
+    local bP=Instance.new("TextButton",bPanel);bP.Size=UDim2.new(0,22,0,22);bP.Position=UDim2.new(1,-23,0,def.yp+20)
+    bP.BackgroundColor3=Color3.fromRGB(60,0,0);bP.Text="+";bP.TextColor3=Color3.fromRGB(255,150,150)
+    bP.Font=Enum.Font.GothamBold;bP.TextScaled=true;bP.BorderSizePixel=0;bP.ZIndex=9
+    Instance.new("UICorner",bP).CornerRadius=UDim.new(0,5)
+    bP.MouseButton1Click:Connect(function()
+        CFG[cK2]=math.min(SETTING_MAX[cK2],math.round((CFG[cK2]+SETTING_STEP[cK2])*100)/100)
+        cL2.Text=cD2.label..": "..tostring(CFG[cK2])
+    end)
+end
+
+-- Hacker Settings
+local hackerOpen=false
+local hackerGui=Instance.new("ScreenGui",playerGui);hackerGui.Name="HackerSettings";hackerGui.ResetOnSpawn=false;hackerGui.Enabled=false
+local hPanel=Instance.new("Frame",hackerGui);hPanel.Size=UDim2.new(0,270,0,380);hPanel.Position=UDim2.new(0,-280,0.5,-190)
+hPanel.BackgroundColor3=Color3.fromRGB(15,15,15);hPanel.BackgroundTransparency=0.15;hPanel.BorderSizePixel=0
+Instance.new("UICorner",hPanel).CornerRadius=UDim.new(0,12)
+Instance.new("UIStroke",hPanel).Color=Color3.fromRGB(255,220,0)
+local hTB=Instance.new("Frame",hPanel);hTB.Size=UDim2.new(1,0,0,40);hTB.BackgroundColor3=Color3.fromRGB(255,220,0);hTB.BorderSizePixel=0
+Instance.new("UICorner",hTB).CornerRadius=UDim.new(0,12)
+local hT=Instance.new("TextLabel",hTB);hT.Size=UDim2.new(1,0,1,0);hT.BackgroundTransparency=1
+hT.TextColor3=Color3.fromRGB(0,0,0);hT.TextScaled=true;hT.Font=Enum.Font.GothamBold;hT.Text="⚙ HACKER SETTINGS"
+local hSc=Instance.new("ScrollingFrame",hPanel);hSc.Size=UDim2.new(1,-10,1,-50);hSc.Position=UDim2.new(0,5,0,45)
+hSc.BackgroundTransparency=1;hSc.ScrollBarThickness=3;hSc.ScrollBarImageColor3=Color3.fromRGB(255,220,0)
+local hLy=Instance.new("UIListLayout",hSc);hLy.Padding=UDim.new(0,6)
+local hPd=Instance.new("UIPadding",hSc);hPd.PaddingTop=UDim.new(0,5);hPd.PaddingLeft=UDim.new(0,5);hPd.PaddingRight=UDim.new(0,5)
+hLy:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() hSc.CanvasSize=UDim2.new(0,0,0,hLy.AbsoluteContentSize.Y+10) end)
+local function MkH(txt)
+    local f=Instance.new("Frame");f.Size=UDim2.new(1,0,0,28);f.BackgroundColor3=Color3.fromRGB(255,220,0)
+    f.BackgroundTransparency=0.7;f.BorderSizePixel=0;f.Parent=hSc;Instance.new("UICorner",f).CornerRadius=UDim.new(0,6)
+    local l=Instance.new("TextLabel");l.Size=UDim2.new(1,0,1,0);l.BackgroundTransparency=1
+    l.TextColor3=Color3.fromRGB(255,220,0);l.TextScaled=true;l.Font=Enum.Font.GothamBold;l.Text=txt;l.Parent=f
+end
+local function MkTg(label,iv,onChange)
+    local f=Instance.new("Frame");f.Size=UDim2.new(1,0,0,36);f.BackgroundColor3=Color3.fromRGB(30,30,30)
+    f.BackgroundTransparency=0.3;f.BorderSizePixel=0;f.Parent=hSc;Instance.new("UICorner",f).CornerRadius=UDim.new(0,8)
+    local lb=Instance.new("TextLabel");lb.Size=UDim2.new(0.65,0,1,0);lb.Position=UDim2.new(0,8,0,0)
+    lb.BackgroundTransparency=1;lb.TextColor3=Color3.fromRGB(255,255,255);lb.TextScaled=true
+    lb.Font=Enum.Font.Gotham;lb.TextXAlignment=Enum.TextXAlignment.Left;lb.Text=label;lb.Parent=f
+    local btn=Instance.new("TextButton");btn.Size=UDim2.new(0,55,0,24);btn.Position=UDim2.new(1,-63,0.5,-12)
+    btn.TextScaled=true;btn.Font=Enum.Font.GothamBold;btn.BorderSizePixel=0;btn.Parent=f
+    Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0);local val=iv
+    local function U() btn.BackgroundColor3=val and Color3.fromRGB(0,200,80) or Color3.fromRGB(180,40,40)
+        btn.TextColor3=Color3.fromRGB(255,255,255);btn.Text=val and "ON" or "OFF" end
+    U();btn.MouseButton1Click:Connect(function() val=not val;U();onChange(val) end)
+end
+local function MkBR(label,opts,onSel)
+    local c=Instance.new("Frame");c.Size=UDim2.new(1,0,0,60);c.BackgroundColor3=Color3.fromRGB(30,30,30)
+    c.BackgroundTransparency=0.3;c.BorderSizePixel=0;c.Parent=hSc;Instance.new("UICorner",c).CornerRadius=UDim.new(0,8)
+    local lb=Instance.new("TextLabel");lb.Size=UDim2.new(1,-10,0,22);lb.Position=UDim2.new(0,8,0,3)
+    lb.BackgroundTransparency=1;lb.TextColor3=Color3.fromRGB(200,200,200);lb.TextScaled=true
+    lb.Font=Enum.Font.Gotham;lb.TextXAlignment=Enum.TextXAlignment.Left;lb.Text=label;lb.Parent=c
+    local bf=Instance.new("Frame");bf.Size=UDim2.new(1,-10,0,28);bf.Position=UDim2.new(0,5,0,28)
+    bf.BackgroundTransparency=1;bf.Parent=c
+    local rl=Instance.new("UIListLayout",bf);rl.FillDirection=Enum.FillDirection.Horizontal;rl.Padding=UDim.new(0,4)
+    for _,o in ipairs(opts) do
+        local b=Instance.new("TextButton");b.Size=UDim2.new(0,44,1,0);b.BackgroundColor3=Color3.fromRGB(60,60,60)
+        b.TextColor3=Color3.fromRGB(255,255,255);b.TextScaled=true;b.Font=Enum.Font.GothamBold
+        b.Text=tostring(o);b.BorderSizePixel=0;b.Parent=bf;Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
+        b.MouseButton1Click:Connect(function()
+            for _,ch in ipairs(bf:GetChildren()) do if ch:IsA("TextButton") then ch.BackgroundColor3=Color3.fromRGB(60,60,60);ch.TextColor3=Color3.fromRGB(255,255,255) end end
+            b.BackgroundColor3=Color3.fromRGB(255,220,0);b.TextColor3=Color3.fromRGB(0,0,0);onSel(o)
+        end)
+    end
+end
+MkH("📡  ESP")
+MkTg("Generator ESP",Settings.ESP_Generator,function(v) Settings.ESP_Generator=v
+    if not v then for g in pairs(espData) do if espData[g] then espData[g].progBB:Destroy();espData[g].imgBB:Destroy() end end;espData={}
+    else RefreshESP() end end)
+MkTg("Killer ESP",Settings.ESP_Killer,function(v) Settings.ESP_Killer=v;if not v then for c in pairs(killerESP) do RemoveCharESP(c,killerESP) end end end)
+MkTg("Survivor ESP",Settings.ESP_Survivor,function(v) Settings.ESP_Survivor=v;if not v then for c in pairs(survivorESP) do RemoveCharESP(c,survivorESP) end end end)
+MkH("⚡  STAMINA")
+local iF=Instance.new("Frame");iF.Size=UDim2.new(1,0,0,40);iF.BackgroundColor3=Color3.fromRGB(30,30,30)
+iF.BackgroundTransparency=0.3;iF.BorderSizePixel=0;iF.Parent=hSc;Instance.new("UICorner",iF).CornerRadius=UDim.new(0,8)
+local iLb=Instance.new("TextLabel");iLb.Size=UDim2.new(0.4,0,1,0);iLb.Position=UDim2.new(0,8,0,0)
+iLb.BackgroundTransparency=1;iLb.TextColor3=Color3.fromRGB(200,200,200);iLb.TextScaled=true
+iLb.Font=Enum.Font.Gotham;iLb.TextXAlignment=Enum.TextXAlignment.Left;iLb.Text="Value:";iLb.Parent=iF
+local iBx=Instance.new("TextBox");iBx.Size=UDim2.new(0,100,0,28);iBx.Position=UDim2.new(1,-108,0.5,-14)
+iBx.BackgroundColor3=Color3.fromRGB(50,50,80);iBx.TextColor3=Color3.fromRGB(255,220,0);iBx.TextScaled=true
+iBx.Font=Enum.Font.GothamBold;iBx.Text="100";iBx.BorderSizePixel=0;iBx.ClearTextOnFocus=false;iBx.Parent=iF
+Instance.new("UICorner",iBx).CornerRadius=UDim.new(0,6)
+iBx.FocusLost:Connect(function() local v=tonumber(iBx.Text);if v and v>0 then ApplyStamina(v) else iBx.Text=tostring(customStaminaMax) end end)
+MkBR("Preset:",{"1","100","500","1000","∞"},function(o)
+    if o=="∞" then StopInfiniteStamina();StartInfiniteStamina(999);iBx.Text="∞"
+    else local v=tonumber(o) or 100;iBx.Text=tostring(v);ApplyStamina(v) end
+end)
+MkTg("Infinite Stamina",false,function(v) if v then StartInfiniteStamina(customStaminaMax) else StopInfiniteStamina() end end)
+
+local function ToggleHacker()
+    hackerOpen=not hackerOpen;hackerGui.Enabled=true
+    if hackerOpen then TweenService:Create(hPanel,TweenInfo.new(0.3,Enum.EasingStyle.Back),{Position=UDim2.new(0,10,0.5,-190)}):Play()
+    else TweenService:Create(hPanel,TweenInfo.new(0.25,Enum.EasingStyle.Quad),{Position=UDim2.new(0,-280,0.5,-190)}):Play()
+        task.delay(0.3,function() hackerGui.Enabled=false end) end
+end
+
+-- ================================================
+--  INPUT
+-- ================================================
+UserInputService.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode==CFG.ToggleKey then CFG.AutoBlock=not CFG.AutoBlock;print("[TOGGLE]",CFG.AutoBlock and "ON" or "OFF") end
+    if input.KeyCode==CFG.AltKey then bPanel.Visible=not bPanel.Visible end
+    if input.KeyCode==Settings.Keybind_HackerSet then ToggleHacker() end
+    if input.KeyCode==Enum.KeyCode.B then CFG.BarrierOn=not CFG.BarrierOn;print("[BARRIER]",CFG.BarrierOn and "ON" or "OFF") end
+    if input.KeyCode==Enum.KeyCode.L then PlayTrick() end
+    local sk=SETTING_KEYS[input.KeyCode];if sk then SELECTED=sk end
+    if input.KeyCode==Enum.KeyCode.Left then
+        CFG[SELECTED]=math.max(SETTING_MIN[SELECTED],math.round((CFG[SELECTED]-SETTING_STEP[SELECTED])*100)/100)
+        if settingLabels[SELECTED] then for _,d in ipairs(settingDefs) do if d.key==SELECTED then settingLabels[SELECTED].Text=d.label..": "..tostring(CFG[SELECTED]);break end end end
+    end
+    if input.KeyCode==Enum.KeyCode.Right then
+        CFG[SELECTED]=math.min(SETTING_MAX[SELECTED],math.round((CFG[SELECTED]+SETTING_STEP[SELECTED])*100)/100)
+        if settingLabels[SELECTED] then for _,d in ipairs(settingDefs) do if d.key==SELECTED then settingLabels[SELECTED].Text=d.label..": "..tostring(CFG[SELECTED]);break end end end
+    end
+end)
+
+-- ================================================
+--  INIT
+-- ================================================
+task.spawn(function()
+    task.wait(0.5);WatchKillerFolder();task.wait(1);ScanAll()
+    WatchChargeForR()
+    print("[V28B] ✅ Ready! AutoR via Charge≥9")
+    print("[V28B] P=Block|LAlt=Set|RShift=ESP|B=Barrier|L=Trick|[1-4]=Sel|[←→]=Val")
+end)
