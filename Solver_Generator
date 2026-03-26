@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
-local cooldownTime = 5 
+local cooldownTime = 2 
 local lastSolve = 0
 local isProcessing = false
 
