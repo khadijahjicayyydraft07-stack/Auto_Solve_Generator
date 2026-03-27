@@ -1,13 +1,12 @@
 --[[
-    FORSAKEN V29 - AutoBlock via Charge
+    FORSAKEN V30 - AutoBlock via Charge + Prediction System
     by ikki_resky
-    Update V29:
-    - Hapus catch, AutoR, Barrier, StaminaSet
-    - Trick L pakai Velocity (slow speed)
-    - Hapus Alt settings panel
-    - Hapus HackerGui → semua pakai Keybinds
-    - GUI baru: kiri bawah = On/Off Keybinds
-    - GUI kiri layar = ESP Toggle (Gen+Survivor+Killer)
+    Update V30:
+    - Tambah sistem Prediction (prediksi posisi killer dari jauh)
+    - Prediction     = aktifkan prediksi speed/walk killer
+    - PredictionLook = cek arah killer menghadap player (prediksi)
+    - PredictionRange= jarak max prediksi aktif (per skill)
+    - PredictionFuse = harus dua-duanya true baru block (kayak speed+iflook)
 ]]
 
 -- ================================================
@@ -21,15 +20,26 @@ local TRICK = {
 
 -- ================================================
 --  KILLER CONFIG
+--  Prediction fields (per skill):
+--    prediction=true/false       → aktifkan sistem predict
+--    predictionLook=true/false   → cek killer menghadap player (prediksi)
+--    predictionRange=15          → jarak max predict aktif (studs)
+--    predictionFuse=true/false   → harus prediction+predictionLook dua-duanya true
 -- ================================================
 local KILLER_CONFIG = {
     ["Slasher"] = {
         ["126830014841198"] = {name="Slash",        block="owner",
-                            speed=false, iflook=true, range=10,},
+                            speed=false, iflook=false, range=7,
+                            prediction=true, predictionLook=true,
+                            predictionRange=15, predictionFuse=true,},
         ["126355327951215"] = {name="Behead",        block="owner",
-                                speed=false, iflook=true, range=10,},
+                                speed=false, iflook=false, range=7,
+                                prediction=true, predictionLook=true,
+                                predictionRange=15, predictionFuse=true,},
         ["121086746534252"] = {name="Gashing Wound", block="owner",
-                                speed=false, iflook=true, range=10,},
+                                speed=false, iflook=false, range=7,
+                                prediction=true, predictionLook=true,
+                                predictionRange=15, predictionFuse=true,},
         ["85591573377728"]  = {name="Ranging Pace",  block=false},
     },
     ["c00lkidd"] = {
@@ -38,7 +48,9 @@ local KILLER_CONFIG = {
         ["98456918873918"] = {name="Walkspeed Override",   block=false},
         ["106776364623742"]= {name="WalkspeedOverrideStart",block="owner",
                               speed=true,speedMin=1,range=25,
-                              hold=0,iflook=true},
+                              hold=0,iflook=true,
+                              prediction=true, predictionLook=true,
+                              predictionRange=15, predictionFuse=true,},
         ["18885915433"]    = {name="PizzaDelivery",        block=false},
         ["18885906143"]    = {name="Walk",                 block=false},
         ["96571077893813"] = {name="Run",                  block=false},
@@ -47,12 +59,16 @@ local KILLER_CONFIG = {
     ["Noli"] = {
         ["106538427162796"] = {name="STAB",        block="owner",
                                 speed=false, range=10,
-                                iflook=true,},
+                                iflook=true,
+                                prediction=true, predictionLook=true,
+                                predictionRange=15, predictionFuse=true,},
         ["107339108383093"] = {name="NOVA",         block=false},
         ["93841120533318"]  = {name="VOIDRUSH",     block=false},
         ["126896426760253"] = {name="VOIDRUSHSTART",block="owner",
                               speed=true,speedMin=1,range=25,
-                              hold=0,iflook=true,},
+                              hold=0,iflook=true,
+                              prediction=true, predictionLook=true,
+                              predictionRange=15, predictionFuse=true,},
         ["104744456957363"] = {name="OBSERVANT",    block=false},
         ["109700476007435"] = {name="Walk",         block=false},
         ["117451341682452"] = {name="Run",          block=false},
@@ -60,16 +76,21 @@ local KILLER_CONFIG = {
     },
     ["John Doe"] = {
         ["105458270463374"] = {name="Slash",        block="owner",
-                                speed=false, iflook=true, range=10},
+                                speed=false, iflook=false, range=7,
+                                hold=0,
+                                prediction=true, predictionLook=true,
+                                predictionRange=15, predictionFuse=true,},
         ["127172483138092"] = {name="Corrupt Energy",        block=false},
-        ["86758834842420"] = {name="Digital Footprint",        block=false},
-        ["81193817424328"] = {name="walk",        block=false},
-        ["132653655520682"] = {name="Run",        block=false},
-        ["105880087711722"] = {name="Idle",        block=false},
+        ["86758834842420"]  = {name="Digital Footprint",     block=false},
+        ["81193817424328"]  = {name="walk",                  block=false},
+        ["132653655520682"] = {name="Run",                   block=false},
+        ["105880087711722"] = {name="Idle",                  block=false},
     },
     ["1x1x1x1"] = {
         ["83829782357897"] = {name="Slash",          block="owner",
-                                speed=false, range=10, iflook=true},
+                                speed=false, range=7, iflook=true,
+                                prediction=true, predictionLook=true,
+                                predictionRange=15, predictionFuse=true,},
         ["99050723653468"] = {name="Mass_Infection", block=false},
         ["119181003138006"] = {name="Entanglement",  block=false},
         ["103951585216630"] = {name="Unstable Eye",  block=false},
@@ -97,7 +118,7 @@ local VIM              = game:GetService("VirtualInputManager")
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-for _,n in ipairs({"FG_AB_V29","FG_ESP_V29"}) do
+for _,n in ipairs({"FG_AB_V29","FG_ESP_V29","FG_AB_V30"}) do
     if playerGui:FindFirstChild(n) then playerGui:FindFirstChild(n):Destroy() end
 end
 
@@ -108,7 +129,7 @@ local CFG = {
     AutoBlock    = true,
     BlockKey     = Enum.KeyCode.Q,
     ToggleKey    = Enum.KeyCode.P,
-    HoldTime     = 0.3,
+    HoldTime     = 0,
     Cooldown     = 0.05,
     BlockRange   = 10,
 }
@@ -293,6 +314,67 @@ local function Block(reason)
 end
 
 -- ================================================
+--  PREDICTION SYSTEM
+--  prediction=true      → aktifkan prediksi untuk skill ini
+--  predictionLook=true  → cek arah killer menghadap player (prediksi)
+--  predictionRange=15   → jarak max prediksi (studs)
+--  predictionFuse=true  → harus prediction+predictionLook dua-duanya true
+-- ================================================
+local PREDICT = {
+    PredictTime = 0.15,  -- seberapa jauh ke depan prediksi posisi (detik)
+    SpeedMin    = 10,    -- min speed killer buat trigger predict (walk juga masuk)
+    CheckRate   = 0.07,  -- polling interval
+    Timeout     = 6,     -- max durasi polling
+}
+
+-- Prediksi posisi killer setelah PredictTime detik berdasarkan velocity saat ini
+local function PredictPos(kHRP)
+    local vel = kHRP.AssemblyLinearVelocity
+    return kHRP.Position + Vector3.new(vel.X, 0, vel.Z) * PREDICT.PredictTime
+end
+
+-- Cek apakah killer (setelah diprediksi) menghadap player
+local function DoPredictLook(kHRP, myHRP)
+    local predictedPos = PredictPos(kHRP)
+    local toPlayer = (myHRP.Position - predictedPos).Unit
+    local dot = kHRP.CFrame.LookVector:Dot(toPlayer)
+    return dot >= 0.4
+end
+
+-- Cek apakah killer akan masuk range block setelah PredictTime
+local function DoPredictRange(kHRP, myHRP, range)
+    local predictedPos = PredictPos(kHRP)
+    return (myHRP.Position - predictedPos).Magnitude <= range
+end
+
+-- Fungsi utama: apakah perlu block berdasarkan prediction config di info skill
+local function ShouldPredictBlock(kChar, info)
+    if not info.prediction then return false end
+    local kHRP  = kChar and kChar:FindFirstChild("HumanoidRootPart")
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not kHRP or not myHRP then return false end
+
+    -- Cek speed killer (walk atau lari)
+    local vel = kHRP.AssemblyLinearVelocity
+    local spd = Vector3.new(vel.X, 0, vel.Z).Magnitude
+    if spd < PREDICT.SpeedMin then return false end
+
+    -- Cek jarak sekarang masih dalam predictionRange
+    local dist = (myHRP.Position - kHRP.Position).Magnitude
+    local pRange = info.predictionRange or 15
+    if dist > pRange then return false end
+
+    local rangeOK = DoPredictRange(kHRP, myHRP, pRange)
+    local lookOK  = (not info.predictionLook) or DoPredictLook(kHRP, myHRP)
+
+    if info.predictionFuse then
+        return rangeOK and lookOK   -- harus dua-duanya true
+    else
+        return rangeOK or lookOK    -- salah satu cukup
+    end
+end
+
+-- ================================================
 --  HOOK KILLER
 -- ================================================
 local hooked={};local prevAbils={}
@@ -340,6 +422,12 @@ local function HookKillerChar(char,pName)
                                     Block(string.format("%s %s [spd=%.1f]",kn,info.name,spd))
                                     done=true
                                 end
+                                -- Predict fallback untuk block="speed"
+                                if not done and ShouldPredictBlock(char, info) then
+                                    BS.lastSkill=string.format("%s [PREDICT]",info.name)
+                                    Block(string.format("%s %s [predict-spd]",kn,info.name))
+                                    done=true
+                                end
                                 if tick()-t0>6 then break end
                             end
                         end)
@@ -372,6 +460,11 @@ local function HookKillerChar(char,pName)
                                     if dist<=(info.range or CFG.BlockRange) and facing then
                                         shouldBlock=true;BS.lastSkill=info.name
                                     end
+                                end
+                                -- Predict: cek dari jauh sebelum masuk range biasa
+                                if not shouldBlock and ShouldPredictBlock(char, info) then
+                                    shouldBlock=true
+                                    BS.lastSkill=string.format("%s [PREDICT]",info.name)
                                 end
                                 prev=curr
                                 if shouldBlock then
@@ -418,8 +511,7 @@ task.spawn(function() while true do task.wait(2);ScanAll() end end)
 local trickLooping = false
 local trickTrack   = nil
 local trickBV      = nil
-
-local trickActive = false
+local trickActive  = false
 
 local function SetTrickVelocity(char, active)
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -431,30 +523,25 @@ local function SetTrickVelocity(char, active)
     if active then
         local bv = Instance.new("BodyVelocity")
         bv.Name     = "TrickBV"
-        -- Y = 0 → tidak melayang, X & Z dikontrol
         bv.MaxForce = Vector3.new(1e4, 0, 1e4)
         bv.P        = 1e3
         bv.Velocity = Vector3.new(0, 0, 0)
         bv.Parent   = hrp
         trickBV  = bv
         trickActive = true
-
-        -- Update velocity setiap frame → ikut arah gerak karakter, tapi lambat
         task.spawn(function()
             while trickActive and hrp and hrp.Parent do
                 task.wait()
                 if not trickBV or not trickBV.Parent then break end
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum and hum.MoveDirection.Magnitude > 0 then
-                    -- Gerak ke arah yang ditekan, tapi max TRICK.SlowVelocity studs/s
                     local dir = hum.MoveDirection
                     trickBV.Velocity = Vector3.new(
                         dir.X * TRICK.SlowVelocity,
-                        0,  -- Y tetap 0, tidak melayang
+                        0,
                         dir.Z * TRICK.SlowVelocity
                     )
                 else
-                    -- Tidak ada input → berhenti pelan
                     trickBV.Velocity = Vector3.new(0, 0, 0)
                 end
             end
@@ -494,43 +581,33 @@ end
 --  GUI UTAMA
 -- ================================================
 local sg = Instance.new("ScreenGui", playerGui)
-sg.Name = "FG_AB_V29"; sg.ResetOnSpawn = false; sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+sg.Name = "FG_AB_V30"; sg.ResetOnSpawn = false; sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- ================================================
---  POSISI KEYBINDS — preset pojok layar
--- ================================================
--- posisi: 0=kiri bawah, 1=kanan atas, 2=kiri atas, 3=kanan bawah
 local KB_POSITIONS = {
-    [0] = UDim2.new(0, 10, 1, -110),   -- kiri bawah
-    [1] = UDim2.new(1, -215, 0, 10),   -- kanan atas
-    [2] = UDim2.new(0, 10, 0, 10),     -- kiri atas
-    [3] = UDim2.new(1, -215, 1, -110), -- kanan bawah
+    [0] = UDim2.new(0, 10, 1, -110),
+    [1] = UDim2.new(1, -215, 0, 10),
+    [2] = UDim2.new(0, 10, 0, 10),
+    [3] = UDim2.new(1, -215, 1, -110),
 }
 local kbPosIdx = 0
 
--- ================================================
---  GUI KEYBINDS — tidak bisa digeser, ada tombol pindah pojok
---  Background: Gray + sedikit transparan
--- ================================================
 local KB = Instance.new("Frame", sg)
 KB.Size             = UDim2.new(0, 205, 0, 105)
 KB.Position         = KB_POSITIONS[kbPosIdx]
-KB.BackgroundColor3 = Color3.fromRGB(80, 80, 85)   -- Gray
+KB.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
 KB.BackgroundTransparency = 0.35
 KB.BorderSizePixel  = 0
-KB.Active           = false -- TIDAK bisa digeser/drag
+KB.Active           = false
 Instance.new("UICorner", KB).CornerRadius = UDim.new(0, 10)
 local kbStroke = Instance.new("UIStroke", KB)
 kbStroke.Color = Color3.fromRGB(110, 110, 120); kbStroke.Thickness = 1
 
--- Header bar (untuk judul + tombol pindah)
 local kbHeader = Instance.new("Frame", KB)
 kbHeader.Size = UDim2.new(1, 0, 0, 26)
 kbHeader.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 kbHeader.BackgroundTransparency = 0.2
 kbHeader.BorderSizePixel = 0
 Instance.new("UICorner", kbHeader).CornerRadius = UDim.new(0, 10)
--- Fix sudut bawah header rata
 local kbHFix = Instance.new("Frame", kbHeader)
 kbHFix.Size = UDim2.new(1, 0, 0.5, 0)
 kbHFix.Position = UDim2.new(0, 0, 0.5, 0)
@@ -538,17 +615,15 @@ kbHFix.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 kbHFix.BackgroundTransparency = 0.2
 kbHFix.BorderSizePixel = 0
 
--- Judul kuning
 local kbTitle = Instance.new("TextLabel", kbHeader)
 kbTitle.Size = UDim2.new(1, -30, 1, 0)
 kbTitle.Position = UDim2.new(0, 7, 0, 0)
 kbTitle.BackgroundTransparency = 1
 kbTitle.Text = "Script Keybinds"
-kbTitle.TextColor3 = Color3.fromRGB(255, 210, 50)  -- Kuning
+kbTitle.TextColor3 = Color3.fromRGB(255, 210, 50)
 kbTitle.TextSize = 10; kbTitle.Font = Enum.Font.GothamBold
 kbTitle.TextXAlignment = Enum.TextXAlignment.Left
 
--- Tombol pindah pojok (⤡)
 local kbMoveBtn = Instance.new("TextButton", kbHeader)
 kbMoveBtn.Size = UDim2.new(0, 22, 0, 20)
 kbMoveBtn.Position = UDim2.new(1, -24, 0.5, -10)
@@ -564,20 +639,17 @@ kbMoveBtn.MouseButton1Click:Connect(function()
     TweenService:Create(KB, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position=KB_POSITIONS[kbPosIdx]}):Play()
 end)
 
--- Divider
 local div = Instance.new("Frame", KB)
 div.Size = UDim2.new(1, -12, 0, 1)
 div.Position = UDim2.new(0, 6, 0, 27)
 div.BackgroundColor3 = Color3.fromRGB(110, 110, 120); div.BorderSizePixel = 0
 
--- Helper baris keybind
--- Key badge kuning, label putih + pixel hitam (TextStroke)
 local function KbRow(parent, yPos, keyTxt, labelTxt, stateFunc)
     local kBadge = Instance.new("TextLabel", parent)
     kBadge.Size = UDim2.new(0, 20, 0, 14)
     kBadge.Position = UDim2.new(0, 7, 0, yPos)
     kBadge.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    kBadge.TextColor3 = Color3.fromRGB(255, 210, 50)  -- kuning
+    kBadge.TextColor3 = Color3.fromRGB(255, 210, 50)
     kBadge.Text = keyTxt; kBadge.TextScaled = true
     kBadge.Font = Enum.Font.GothamBold; kBadge.BorderSizePixel = 0
     Instance.new("UICorner", kBadge).CornerRadius = UDim.new(0, 4)
@@ -586,8 +658,8 @@ local function KbRow(parent, yPos, keyTxt, labelTxt, stateFunc)
     lbl.Size = UDim2.new(0, 100, 0, 14)
     lbl.Position = UDim2.new(0, 31, 0, yPos)
     lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)    -- putih
-    lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)    -- pixel hitam
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     lbl.TextStrokeTransparency = 0
     lbl.Text = labelTxt; lbl.TextSize = 10
     lbl.Font = Enum.Font.GothamBold
@@ -610,11 +682,12 @@ local function KbRow(parent, yPos, keyTxt, labelTxt, stateFunc)
     Upd(); return Upd
 end
 
+local settingsOpen = false
+
 local updAB    = KbRow(KB, 31, "P", "AutoBlock",  function() return CFG.AutoBlock end)
 local updTrick = KbRow(KB, 50, "L", "Trick",      function() return trickLooping end)
 local updAlt   = KbRow(KB, 69, "Alt", "Settings", function() return settingsOpen end)
 
--- Blocks counter
 local blocksLbl = Instance.new("TextLabel", KB)
 blocksLbl.Size = UDim2.new(1, -8, 0, 12)
 blocksLbl.Position = UDim2.new(0, 7, 0, 88)
@@ -627,23 +700,19 @@ blocksLbl.TextSize = 9; blocksLbl.Font = Enum.Font.GothamBold
 blocksLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 -- ================================================
---  GUI SETTINGS — ESP Panel (bisa digeser, Alt toggle, slide animasi)
---  Background: Gray solid (tidak invis)
+--  GUI SETTINGS — ESP Panel
 -- ================================================
-local settingsOpen = false
-
 local settPanel = Instance.new("Frame", sg)
 settPanel.Size             = UDim2.new(0, 190, 0, 158)
-settPanel.Position         = UDim2.new(0, -200, 0.5, -79) -- tersembunyi awal
-settPanel.BackgroundColor3 = Color3.fromRGB(75, 75, 80)   -- Gray solid
-settPanel.BackgroundTransparency = 0                        -- TIDAK transparan
+settPanel.Position         = UDim2.new(0, -200, 0.5, -79)
+settPanel.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
+settPanel.BackgroundTransparency = 0
 settPanel.BorderSizePixel  = 0
-settPanel.Active = true; settPanel.Draggable = true         -- BISA digeser
+settPanel.Active = true; settPanel.Draggable = true
 Instance.new("UICorner", settPanel).CornerRadius = UDim.new(0, 10)
 local settStroke = Instance.new("UIStroke", settPanel)
 settStroke.Color = Color3.fromRGB(110, 110, 125); settStroke.Thickness = 1.2
 
--- Judul settings
 local settTitle = Instance.new("TextLabel", settPanel)
 settTitle.Size = UDim2.new(1, -8, 0, 18)
 settTitle.Position = UDim2.new(0, 7, 0, 4)
@@ -655,13 +724,11 @@ settTitle.TextXAlignment = Enum.TextXAlignment.Left
 settTitle.TextStrokeColor3 = Color3.fromRGB(0,0,0)
 settTitle.TextStrokeTransparency = 0.5
 
--- Divider settings
 local settDiv = Instance.new("Frame", settPanel)
 settDiv.Size = UDim2.new(1, -12, 0, 1)
 settDiv.Position = UDim2.new(0, 6, 0, 25)
 settDiv.BackgroundColor3 = Color3.fromRGB(110, 110, 120); settDiv.BorderSizePixel = 0
 
--- Subtitle
 local espSub = Instance.new("TextLabel", settPanel)
 espSub.Size = UDim2.new(1, -8, 0, 13)
 espSub.Position = UDim2.new(0, 7, 0, 29)
@@ -671,7 +738,6 @@ espSub.TextColor3 = Color3.fromRGB(220, 220, 255)
 espSub.TextSize = 10; espSub.Font = Enum.Font.GothamBold
 espSub.TextXAlignment = Enum.TextXAlignment.Left
 
--- Toggle bola bulat animasi
 local function MakeToggle(parent, yPos, label, getVal, setVal)
     local lbl = Instance.new("TextLabel", parent)
     lbl.Size = UDim2.new(0, 100, 0, 26)
@@ -734,7 +800,6 @@ MakeToggle(settPanel, 114, "Survivor",
         if not v then for c in pairs(survivorESP) do RemoveCharESP(c, survivorESP) end end
     end)
 
--- Animasi slide Alt
 local function ToggleSettings()
     settingsOpen = not settingsOpen
     local targetPos = settingsOpen
@@ -743,7 +808,6 @@ local function ToggleSettings()
     TweenService:Create(settPanel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position=targetPos}):Play()
 end
 
--- Update loop GUI keybinds
 task.spawn(function()
     while task.wait(0.1) do
         if not sg.Parent then break end
@@ -771,6 +835,6 @@ end)
 -- ================================================
 task.spawn(function()
     task.wait(0.5); WatchKillerFolder(); task.wait(1); ScanAll()
-    print("[V29] ✅ Ready!")
-    print("[V29] P=AutoBlock | L=Trick | ESP Panel kiri layar")
+    print("[V30] ✅ Ready!")
+    print("[V30] P=AutoBlock | L=Trick | Alt=ESP Panel | Prediction System ON")
 end)
