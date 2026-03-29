@@ -15,7 +15,7 @@
 local TRICK = {
     AnimId     = "rbxassetid://117168284651769",
     IfAnimLoop = true,
-    SlowVelocity = 28, -- kecepatan saat trick (Velocity)
+    SlowVelocity = 30, -- kecepatan saat trick (Velocity)
 }
 
 -- ================================================
@@ -72,7 +72,7 @@ local KILLER_CONFIG = {
         ["117451341682452"] = {name="Run",          block=false},
         ["83465205704188"]  = {name="Idle",         block=false},
     },
-    ["JohnDoe"] = {
+    ["John_Doe"] = {
         ["105458270463374"] = {name="Slash",        block="owner",
                                 speed=false, iflook=false, range=7,
                                 hold=0,
