@@ -13,9 +13,9 @@
 --  TRICK SETTINGS (L Key)
 -- ================================================
 local TRICK = {
-    AnimId     = "rbxassetid://72722244508749",
-    IfAnimLoop = false,
-    SlowVelocity = 8, -- kecepatan saat trick (Velocity)
+    AnimId     = "rbxassetid://117168284651769",
+    IfAnimLoop = true,
+    SlowVelocity = 28, -- kecepatan saat trick (Velocity)
 }
 
 -- ================================================
@@ -72,7 +72,7 @@ local KILLER_CONFIG = {
         ["117451341682452"] = {name="Run",          block=false},
         ["83465205704188"]  = {name="Idle",         block=false},
     },
-    ["John Doe"] = {
+    ["JohnDoe"] = {
         ["105458270463374"] = {name="Slash",        block="owner",
                                 speed=false, iflook=false, range=7,
                                 hold=0,
